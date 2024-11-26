@@ -1,0 +1,8 @@
+site_name: Golzad
+theme:
+  name: material
+  logo: assets/file_edited.png
+nav:
+  - Home: index.md
+  - About: about.md
+  - Contact: contact.md

@@ -1,4 +1,4 @@
-# <image src="assets/file_edited.png" width=35 height = 35>  Gulzad Cloud Storage Service
+# Gulzad Cloud Storage Service
 Welcome to Gulzad, your reliable cloud storage solution. Gulzad provides secure, scalable, and easy-to-use cloud storage for individuals and businesses.
 
 ## Features
