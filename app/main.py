@@ -1,9 +1,53 @@
+
 import os
 from typing import Optional 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel 
+from typing import Annotated
+from sqlmodel import Field, Session, SQLModel, create_engine, select
+import uuid
+from passlib.context import CryptContext
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# configuration
+class Settings(BaseSettings):
+    private_key: str 
+    algorithm: str
+    access_token_expire_minutes: int
+    model_config = SettingsConfigDict(env_file=".env")
+
+
+
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    email:str 
+    hash_password: str 
+
+
+
+# now creating an engine 
+sqlite_file_name = "app/server.db"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
+
+connect_args = {"check_same_thread": False}
+engine = create_engine(sqlite_url, connect_args=connect_args)
+
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
+
+
+
 
 app = FastAPI(title="Golzad")
 
@@ -19,6 +63,12 @@ app.add_middleware(
 )
 
 
+
+# async context manage ( on behave of this event)
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+
 # upload na kerna 
 UPLOAD_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "/upload"
 
@@ -32,6 +82,39 @@ async def root():
 class Preference(BaseModel): 
     name: str
     password: str 
+
+
+class UsersRequest(BaseModel):
+    name: str 
+    password: str 
+    email: str
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+        return pwd_context.verify(plain_password, hashed_password)
+
+
+
+@app.post(path="/register")
+async def create_user(user_request: UsersRequest, session: SessionDep):
+    user = User( email=user_request.email, name=user_request.name,  hash_password=hash_password(user_request.password))
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return  {
+        "id": user.id,
+        "name": user.name, 
+        "email": user.email         
+    }
+
+
+@app.post(path="/bucket")
+async def create_buget(session: SessionDep):
+    pass 
 
 
 
@@ -131,3 +214,8 @@ async def get_store(filename: str,u: str | None = None, p: str | None = None ):
 
     return FileResponse(path=file_location)
      
+
+
+
+
+
