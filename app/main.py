@@ -1,22 +1,30 @@
 
+from functools import lru_cache
 import os
 from typing import Optional 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends, status
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel 
 from typing import Annotated
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import uuid
 from passlib.context import CryptContext
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+import jwt
+from jwt.exceptions import InvalidTokenError
+
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
+
 
 # configuration
 class Settings(BaseSettings):
-    private_key: str 
-    algorithm: str
-    access_token_expire_minutes: int
-    model_config = SettingsConfigDict(env_file=".env")
+    private_key: str  = os.getenv("PRIVATE_KEY")
+    algorithm: str =  os.getenv("ALGORITHM")
+    access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
 
 
 
@@ -45,8 +53,12 @@ def get_session():
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="authenticate")
 
 
+@lru_cache
+def get_settings():
+    return Settings()
 
 
 app = FastAPI(title="Golzad")
@@ -112,29 +124,128 @@ async def create_user(user_request: UsersRequest, session: SessionDep):
     }
 
 
-@app.post(path="/bucket")
-async def create_buget(session: SessionDep):
-    pass 
+async def get_current_user(session: SessionDep, token: Annotated[str, Depends(oauth2_scheme)], settings =Depends(get_settings)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.private_key, algorithms=settings.algorithm)
+        id: str = payload.get("id")
+
+        print(f"No id for you {id}")
+        if id is None:
+            raise credentials_exception
+        
+        statement = select(User).where(User.id == id)
+        user = session.exec(statement).one()
+
+        if user is None:
+            raise credentials_exception
+
+        return user
+    except InvalidTokenError:
+        raise credentials_exception
 
 
 
-@app.post(path="/preference")
-async def create_user_prefernce(preference: Preference): 
+@app.post(path="/authenticate")
+async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestForm, Depends()], settings = Depends(get_settings)):
+    
 
+    statement = select(User).where(User.email == user.username)
+    print(statement)
+    person = session.exec(statement).one()
 
-    if not os.path.exists(UPLOAD_DIRECTORY + "/" + preference.name):
-        os.makedirs(UPLOAD_DIRECTORY + "/" + preference.name)
-
-        with open(UPLOAD_DIRECTORY + "/" + preference.name + "/password.txt", "w") as f:
-            f.write(preference.password)
-        return {
-            "message": "Your preference has been saved successfully"
-        }
+    if(person == None):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail= f"There exit no user for {user.username}")
 
     else: 
+        if(  not verify_password(user.password, person.hash_password)):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please write correct password")
+
+        else: 
+
+            payload = {
+                "id": person.id,
+                "name" : person.name,
+                "email": person.email
+            }
+
+    
+
+            token = jwt.encode(
+                payload, settings.private_key, algorithm=settings.algorithm
+            )
+
+            # cookies mey dalte 
+            return {
+                "message": "bruh! that token not to forgot",
+                "token": token
+            }
+    
+
+    
+class BucketRequest(BaseModel):
+    name: str 
+
+
+class Bucket(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    user_id:int  = Field(foreign_key="user.id")
+
+
+@app.post(path="/bucket")
+async def create_buget(bucket_request: BucketRequest,  session: SessionDep, user: Annotated [User, Depends(get_current_user)]):
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try: 
+        
+        
+        statement = select(Bucket).where(Bucket.name == bucket_request.name)
+        bucket = session.exec(statement).one()
+
+        if(bucket):
+            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="your bucket is already been create")
+
+        if(user.id == None):
+            raise credentials_exception
+        
+        bucket = Bucket(name=bucket_request.name, user_id= user.id)
+
+        session.add(bucket)
+        session.commit()
+        session.refresh(bucket)
+        folder_name = f"{bucket_request.name}_{id}"
+        os.mkdir(folder_name)
+        
         return {
-            "message" : "Your preference is already noted it cannot be change"
+            "message": f"your bucket named {bucket_request.name} has been create "
         }
+
+    
+        
+        
+    except InvalidTokenError:
+        raise credentials_exception
+
+    
+
+# TODO: store the file
+@app.post(path="/store/{bucket_name}")
+async def store_files():
+    pass
+
+
+# TODO: get the file
+
 
 @app.post("/store")
 async def store_file(
