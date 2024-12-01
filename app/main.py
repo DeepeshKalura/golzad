@@ -258,8 +258,9 @@ async def create_buget(bucket_request: BucketRequest,  session: SessionDep, head
         session.add(bucket)
         session.commit()
         session.refresh(bucket)
-        folder_name = f"{UPLOAD_DIRECTORY}/{bucket_request.name}_{bucket.id}"
+        folder_name = f"{UPLOAD_DIRECTORY}/{bucket_request.name}"
         os.mkdir(folder_name)
+        os.mkdir( folder_name+"/private") 
         
         return {
             "message": f"your bucket named {bucket_request.name} has been create "
@@ -284,8 +285,11 @@ async def store_files():
 
 @app.post("/store")
 async def store_file(
-    file: UploadFile, bucket_name: Annotated[str, Form()],  header: Annotated[AuthHeaders, Header()], session: SessionDep  ):
+    file: UploadFile, bucket_name: Annotated[str, Form()],  header: Annotated[AuthHeaders, Header()], session: SessionDep, isPrivate :Annotated[str, Form()]  ):
 
+        
+        is_private_folder = isPrivate.lower() == 'true'
+        
         print(header.Authorization)
 
         # Bearer ""
@@ -307,28 +311,50 @@ async def store_file(
 
 
 
+        if (not is_private_folder):
 
-        directory = f"{UPLOAD_DIRECTORY}/{bucket.name}_{bucket.id}"
+            directory = f"{UPLOAD_DIRECTORY}/{bucket.name}"
 
-        with open(f"{directory}/{file.filename}", "wb") as f:
-            f.write(await file.read())
+            with open(f"{directory}/{file.filename}", "wb") as f:
+                f.write(await file.read())
 
 
-        return {
-             "message": "your {file.filename} has been uploaded to the {bucket_name}",
-             "url": f"http://127.0.0.0.1:8000/upload/{bucket_name}_{bucket.id}/{file.filename}"
-        }
+            return {
+                "message": "your {file.filename} has been uploaded to the {bucket_name}",
+                "url": f"http://127.0.0.1:8000/store/{bucket_name}/{file.filename}"
+            }
+        else: 
+            directory = f"{UPLOAD_DIRECTORY}/{bucket.name}/private"
+
+            with open(f"{directory}/{file.filename}", "wb") as f:
+                f.write(await file.read())
+
+            return {
+                "message": "your {file.filename} has been uploaded to the {bucket_name}",
+                "url": f"http://127.0.0.1:8000/store/{bucket_name}/private/{file.filename}"
+            }
+
 
  
 
 
 @app.get("/store/{bucket_name}/{filename}")
-async def get_store(bucket_name: str, filename: str):
+async def get_store(bucket_name: str, filename: str, q:  Annotated[str | None, Query(max_length=50)] = None):
 
     file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/{filename}"
-    
-    if not os.path.exists(file_location):
-        return {"message": "File not found"}
+    if(q == None):
+
+
+        file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/{filename}"
+        
+        if not os.path.exists(file_location):
+            return {"message": "File not found"}
+    else: 
+
+        file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/private/{filename}"
+
+        if not os.path.exists(file_location):
+            return {"message": "File not found"}
 
     return FileResponse(path=file_location)
      
