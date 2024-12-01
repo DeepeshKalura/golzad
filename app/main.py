@@ -1,8 +1,8 @@
 
 from functools import lru_cache
 import os
-from typing import Optional 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends, status
+from typing import Any, Generator, Optional 
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends, status, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -14,6 +14,7 @@ from passlib.context import CryptContext
 from pydantic_settings import BaseSettings
 import jwt
 from jwt.exceptions import InvalidTokenError
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv, find_dotenv
 
@@ -50,6 +51,9 @@ def create_db_and_tables():
 def get_session():
     with Session(engine) as session:
         yield session
+
+def get_normal_instance_session():
+    return Session(engine)
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -124,38 +128,52 @@ async def create_user(user_request: UsersRequest, session: SessionDep):
     }
 
 
-async def get_current_user(session: SessionDep, token: Annotated[str, Depends(oauth2_scheme)], settings =Depends(get_settings)) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.private_key, algorithms=settings.algorithm)
-        id: str = payload.get("id")
 
-        print(f"No id for you {id}")
-        if id is None:
-            raise credentials_exception
-        
+def authenticate_user(id: int, password: str, session: SessionDep):
+    statement = statement = select(User).where(User.id == id)
+    user: User = session.exec(statement).one()
+    if not user:
+        return False
+    if not verify_password(password, user.hash_password):
+        return False
+    return user
+
+
+
+async def get_current_user(
+    session, 
+    token: str, 
+    settings: Settings)-> User:
+    try:
+        payload = jwt.decode(token, settings.private_key, algorithms=[settings.algorithm])
+        print(payload)
+        id: int = payload.get("id")
+        if not id:
+            raise HTTPException( status_code=status.HTTP_401_UNAUTHORIZED, detail="Payload has issue")
+
         statement = select(User).where(User.id == id)
         user = session.exec(statement).one()
-
-        if user is None:
-            raise credentials_exception
+        if not user:
+            raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="This is impossible should be reach this state",
+    )
 
         return user
-    except InvalidTokenError:
-        raise credentials_exception
+    except (InvalidTokenError, KeyError):
+                    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="How can be your token so wrong",
+    )
+
 
 
 
 @app.post(path="/authenticate")
-async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestForm, Depends()], settings = Depends(get_settings)):
+async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestForm, Depends()], settings:Settings = Depends(get_settings)):
     
 
     statement = select(User).where(User.email == user.username)
-    print(statement)
     person = session.exec(statement).one()
 
     if(person == None):
@@ -170,7 +188,8 @@ async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestF
             payload = {
                 "id": person.id,
                 "name" : person.name,
-                "email": person.email
+                "email": person.email,
+                "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
             }
 
     
@@ -181,8 +200,7 @@ async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestF
 
             # cookies mey dalte 
             return {
-                "message": "bruh! that token not to forgot",
-                "token": token
+                "access_token": token
             }
     
 
@@ -197,26 +215,43 @@ class Bucket(SQLModel, table=True):
     user_id:int  = Field(foreign_key="user.id")
 
 
+class AuthHeaders(BaseModel):
+    Authorization: str
+
 @app.post(path="/bucket")
-async def create_buget(bucket_request: BucketRequest,  session: SessionDep, user: Annotated [User, Depends(get_current_user)]):
+async def create_buget(bucket_request: BucketRequest,  session: SessionDep, header: Annotated[AuthHeaders, Header()] ):
     
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
 
     try: 
         
+        # check the token 
+
+        print(header.Authorization)
+
+        # Bearer ""
+
+        token = header.Authorization[7:]
+
+        user: User = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+
+        print(user)
+        if(user == None):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="you are not autheticated")
+
+
+        # check the bucket
         
         statement = select(Bucket).where(Bucket.name == bucket_request.name)
-        bucket = session.exec(statement).one()
+        bucket = session.exec(statement).one_or_none()
 
         if(bucket):
             raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="your bucket is already been create")
 
-        if(user.id == None):
-            raise credentials_exception
+
+
+        
+
+
         
         bucket = Bucket(name=bucket_request.name, user_id= user.id)
 
@@ -250,8 +285,6 @@ async def store_files():
 @app.post("/store")
 async def store_file(
     file: UploadFile,
-    name: Optional[str] = Form(None),
-    password: Optional[str] = Form(None)
 ):
     # Construct preference object if provided
     preference = None
@@ -294,7 +327,7 @@ async def store_file(
 
 
 
-@app.get("/store/{filename}")
+@app.get("/store/{bucket}/{file_name}")
 async def get_store(filename: str,u: str | None = None, p: str | None = None ):
     print(filename)
     file_location = UPLOAD_DIRECTORY + "/"
