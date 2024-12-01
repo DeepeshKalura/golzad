@@ -86,7 +86,7 @@ def on_startup():
     create_db_and_tables()
 
 # upload na kerna 
-UPLOAD_DIRECTORY = os.path.dirname(os.path.abspath(__file__)) + "/upload"
+UPLOAD_DIRECTORY = os.path.dirname(os.path.abspath(__file__))+"/.."+"/upload"
 
 @app.get("/")
 async def root():
@@ -258,7 +258,7 @@ async def create_buget(bucket_request: BucketRequest,  session: SessionDep, head
         session.add(bucket)
         session.commit()
         session.refresh(bucket)
-        folder_name = f"{bucket_request.name}_{id}"
+        folder_name = f"{UPLOAD_DIRECTORY}/{bucket_request.name}_{bucket.id}"
         os.mkdir(folder_name)
         
         return {
@@ -269,7 +269,7 @@ async def create_buget(bucket_request: BucketRequest,  session: SessionDep, head
         
         
     except InvalidTokenError:
-        raise credentials_exception
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
 
@@ -284,74 +284,48 @@ async def store_files():
 
 @app.post("/store")
 async def store_file(
-    file: UploadFile,
-):
-    # Construct preference object if provided
-    preference = None
-    if (name == None and password == None):
-        preference = None
-    else: 
-        preference = Preference(name=name, password=password)
+    file: UploadFile, bucket_name: Annotated[str, Form()],  header: Annotated[AuthHeaders, Header()], session: SessionDep  ):
 
-    url = ""
-    if preference:
-        user_directory = os.path.join(UPLOAD_DIRECTORY, preference.name)
-        if not os.path.exists(user_directory):
-            return {"message": "User preference not found"}
+        print(header.Authorization)
 
-        password_file = os.path.join(user_directory, "password.txt")
-        if os.path.exists(password_file):
-            with open(password_file, "r") as f:
-                stored_password = f.read()
-            if stored_password != preference.password:
-                return {"message": "Invalid password"}
-        else:
-            return {"message": "Password file not found"}
+        # Bearer ""
 
-        file_location = os.path.join(user_directory, file.filename)
-        with open(file_location, "wb") as f:
+        token = header.Authorization[7:]
+
+        user: User = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+
+
+        if not user: 
+             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="please provide valid token")
+        
+
+        statement = select(Bucket).where(Bucket.user_id == user.id, Bucket.name == bucket_name)
+        bucket = session.exec(statement).one_or_none()
+
+        if not bucket:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bucket not found")
+
+
+
+
+        directory = f"{UPLOAD_DIRECTORY}/{bucket.name}_{bucket.id}"
+
+        with open(f"{directory}/{file.filename}", "wb") as f:
             f.write(await file.read())
 
-        url = f"http://127.0.0.1:8000/store/{preference.name}/{file.filename}"
-    else:
-        file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
-        with open(file_location, "wb") as f:
-            f.write(await file.read())
 
-        url = f"http://127.0.0.1:8000/store/{file.filename}"
+        return {
+             "message": "your {file.filename} has been uploaded to the {bucket_name}",
+             "url": f"http://127.0.0.0.1:8000/upload/{bucket_name}_{bucket.id}/{file.filename}"
+        }
 
-    return {
-        "message": "Your file is successfully stored",
-        "url": url,
-    }
+ 
 
 
+@app.get("/store/{bucket_name}/{filename}")
+async def get_store(bucket_name: str, filename: str):
 
-@app.get("/store/{bucket}/{file_name}")
-async def get_store(filename: str,u: str | None = None, p: str | None = None ):
-    print(filename)
-    file_location = UPLOAD_DIRECTORY + "/"
-    if (u != None and p != None ):
-            file_location = os.path.join(file_location, u)
-
-            password_file = os.path.join(file_location, "password.txt")
-    
-            if os.path.exists(password_file):
-                with open(password_file, "r") as f:
-                    stored_password = f.read()
-                if stored_password == p:
-                    file_location = os.path.join(file_location, filename)
-                else:
-                    return {"message": "Invalid password"}
-            else:
-                return {"message": "Please set a correct reference"}
-
-
-
-
-    else: 
-        file_location = os.path.join(file_location, filename)
-
+    file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/{filename}"
     
     if not os.path.exists(file_location):
         return {"message": "File not found"}
