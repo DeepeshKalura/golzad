@@ -330,7 +330,7 @@ async def store_file(
                 f.write(await file.read())
 
             return {
-                "message": "your {file.filename} has been uploaded to the {bucket_name}",
+                "message": f"your {file.filename} has been uploaded to the {bucket_name}",
                 "url": f"http://127.0.0.1:8000/store/{bucket_name}/private/{file.filename}"
             }
 
