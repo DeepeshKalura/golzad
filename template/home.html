@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="http://127.0.0.1:8000/favicon" type="image/x-icon">
+    <title>Golzad - Bucket Management</title>
+</head>
+<body class="bg-gradient-to-r from-blue-400 to-purple-500 min-h-screen">
+    <div class="container mx-auto p-6">
+        <div class="bg-white rounded-xl shadow-2xl p-8">
+            <h1 class="text-3xl font-bold mb-6 text-center">Bucket Management</h1>
+
+            <!-- Create Bucket Section -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4">Create New Bucket</h2>
+                <form id="createBucketForm" class="flex space-x-4">
+                    <input 
+                        type="text" 
+                        id="bucketName" 
+                        placeholder="Enter Bucket Name" 
+                        required 
+                        class="flex-grow px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                    <button 
+                        type="submit" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                    >
+                        Create Bucket
+                    </button>
+                </form>
+            </div>
+
+            <!-- Buckets List -->
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Your Buckets</h2>
+                <div id="bucketsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Buckets will be dynamically populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload Modal (Hidden by default) -->
+        <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-xl w-96">
+                <h3 class="text-xl font-semibold mb-4">Upload File</h3>
+                <form id="fileUploadForm">
+                    <input type="file" id="fileToUpload" required class="mb-4">
+                    <div class="flex items-center mb-4">
+                        <input type="checkbox" id="privateFile" class="mr-2">
+                        <label for="privateFile">Private File</label>
+                    </div>
+                    <input type="hidden" id="selectedBucketName">
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" id="cancelUpload" class="bg-gray-200 px-4 py-2 rounded-lg">Cancel</button>
+                        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Upload</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state to store buckets
+        let userBuckets = [];
+
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            // TODO: API Call to fetch user's buckets
+            // Replace with actual API endpoint
+            await fetchBuckets();
+        });
+
+        // Fetch User's Buckets
+        async function fetchBuckets() {
+            try {
+                // TODO: Implement GET /buckets API call
+                // This should return list of user's buckets
+                // For now, simulating data
+                const response = await fetch('/buckets', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    }
+                });
+                userBuckets = await response.json();
+                renderBuckets();
+            } catch (error) {
+                console.error('Failed to fetch buckets:', error);
+            }
+        }
+
+        // Render Buckets to UI
+        function renderBuckets() {
+            const bucketsList = document.getElementById('bucketsList');
+            bucketsList.innerHTML = userBuckets.map(bucket => `
+                <div class="bg-gray-100 p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-2">${bucket.name}</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="openUploadModal('${bucket.name}')" 
+                            class="bg-green-500 text-white px-2 py-1 rounded text-sm">
+                            Upload
+                        </button>
+                        <button onclick="renameBucket('${bucket.name}')" 
+                            class="bg-yellow-500 text-white px-2 py-1 rounded text-sm">
+                            Rename
+                        </button>
+                        <button onclick="deleteBucket('${bucket.name}')" 
+                            class="bg-red-500 text-white px-2 py-1 rounded text-sm">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Create Bucket
+        document.getElementById('createBucketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bucketName = document.getElementById('bucketName').value;
+
+            try {
+                // TODO: API Call to create bucket
+                const response = await fetch('/bucket', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: JSON.stringify({ name: bucketName })
+                });
+
+                const result = await response.json();
+                await fetchBuckets();
+                e.target.reset();
+            } catch (error) {
+                console.error('Failed to create bucket:', error);
+            }
+        });
+
+        // Open Upload Modal
+        function openUploadModal(bucketName) {
+            document.getElementById('selectedBucketName').value = bucketName;
+            document.getElementById('uploadModal').classList.remove('hidden');
+            document.getElementById('uploadModal').classList.add('flex');
+        }
+
+        // File Upload
+        document.getElementById('fileUploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = document.getElementById('fileToUpload').files[0];
+            const isPrivate = document.getElementById('privateFile').checked;
+            const bucketName = document.getElementById('selectedBucketName').value;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucket_name', bucketName);
+            formData.append('isPrivate', isPrivate);
+
+            try {
+                // TODO: API Call to upload file
+                const response = await fetch('/store', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: formData
+                });
+
+                const result = await response.json();
+                // Close modal and reset form
+                document.getElementById('uploadModal').classList.add('hidden');
+                document.getElementById('uploadModal').classList.remove('flex');
+                e.target.reset();
+            } catch (error) {
+                console.error('File upload failed:', error);
+            }
+        });
+
+        // Cancel Upload
+        document.getElementById('cancelUpload').addEventListener('click', () => {
+            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('uploadModal').classList.remove('flex');
+        });
+
+        // TODO: Implement Bucket Rename Function
+        function renameBucket(oldName) {
+            const newName = prompt(`Enter new name for bucket "${oldName}":`);
+            if (newName) {
+                // TODO: API Call to rename bucket
+            }
+        }
+
+        // TODO: Implement Bucket Delete Function
+        function deleteBucket(bucketName) {
+            const confirmDelete = confirm(`Are you sure you want to delete bucket "${bucketName}"?`);
+            if (confirmDelete) {
+                // TODO: API Call to delete bucket
+            }
+        }
+    </script>
+</body>
+</html>

@@ -92,6 +92,14 @@ UPLOAD_DIRECTORY = os.path.dirname(os.path.abspath(__file__))+"/.."+"/upload"
 async def root():
     return FileResponse (path="template/root.html")
 
+@app.get("/favicon")
+def app_icon():
+    return FileResponse(path="template/images/favicon.ico")
+
+@app.get(path="/hero-image")
+def hero_logo():
+    return FileResponse(path="template/images/panda.jpeg")
+
 
 
 # I need your name and need password to access file 
@@ -99,11 +107,6 @@ class Preference(BaseModel):
     name: str
     password: str 
 
-
-class UsersRequest(BaseModel):
-    name: str 
-    password: str 
-    email: str
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -114,6 +117,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return pwd_context.verify(plain_password, hashed_password)
 
 
+
+class UsersRequest(BaseModel):
+    name: str 
+    password: str 
+    email: str
+
+@app.get(path="/register")
+async def get_register():
+    return FileResponse(path="template/register.html")
 
 @app.post(path="/register")
 async def create_user(user_request: UsersRequest, session: SessionDep):
@@ -167,6 +179,10 @@ async def get_current_user(
     )
 
 
+
+@app.get(path="/authenticate")
+def get_auth_user():
+    return FileResponse("template/login.html")
 
 
 @app.post(path="/authenticate")
@@ -362,4 +378,6 @@ async def get_store(bucket_name: str, filename: str, q:  Annotated[str | None, Q
 
 
 
-
+@app.get("/home")
+def get_home():
+    return FileResponse(path="template/home.html")

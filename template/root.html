@@ -5,138 +5,247 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Golzad - Cloud Storage Solutions</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="http://127.0.0.1:8000/favicon" type="image/x-icon">
+    <style>
+        :root {
+            --primary-color: #FD2A51;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
-    <nav class="bg-white shadow-lg fixed w-full z-10">
+    <nav id="navbar" class="bg-white shadow-lg fixed w-full z-10 transition-all duration-300 ease-in-out opacity-100" data-visible="true">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    <span class="text-2xl font-bold text-blue-600">Golzad</span>
+                    <span class="text-2xl font-bold" style="color: var(--primary-color);">Golzad</span>
                 </div>
-                <div class="hidden md:flex space-x-8">
-                    <a href="#home" class="text-gray-700 hover:text-blue-600">Home</a>
-                    <a href="#features" class="text-gray-700 hover:text-blue-600">Features</a>
-                    <a href="#pricing" class="text-gray-700 hover:text-blue-600">Pricing</a>
-                    <a href="#documentation" class="text-gray-700 hover:text-blue-600">Documentation</a>
+                <div class="hidden md:flex space-x-8" id="nav-links">
+                    <a href="#home" class="text-gray-700 hover:text-[var(--primary-color)] nav-link">Home</a>
+                    <a href="#features" class="text-gray-700 hover:text-[var(--primary-color)] nav-link">Features</a>
+                    <a href="#pricing" class="text-gray-700 hover:text-[var(--primary-color)] nav-link">Pricing</a>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-toggle" class="text-gray-700 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="mobile-menu" class="md:hidden hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    <a href="#home" class="text-gray-700 hover:text-[var(--primary-color)] block">Home</a>
+                    <a href="#features" class="text-gray-700 hover:text-[var(--primary-color)] block">Features</a>
+                    <a href="#pricing" class="text-gray-700 hover:text-[var(--primary-color)] block">Pricing</a>
                 </div>
             </div>
         </div>
     </nav>
-
-    <!-- Home Page -->
-    <section id="home" class="pt-20 pb-20 bg-gradient-to-r from-blue-500 to-blue-700">
+    
+    <!-- Home Page: Full viewport height with vertical centering -->
+    <section id="home" class="min-h-screen flex items-center pt-20 pb-20" style="background: linear-gradient(to right, var(--primary-color), #FD2A51dd);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center">
-                <h1 class="text-4xl font-extrabold text-white sm:text-5xl md:text-6xl">
-                    Secure Cloud Storage Solutions
-                </h1>
-                <p class="mt-3 max-w-md mx-auto text-base text-white sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-                    Store, sync, and share your data securely across all major cloud platforms with Golzad.
-                </p>
-                <div class="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-                    <div class="rounded-md shadow">
-                        <a href="#" class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-white hover:bg-gray-50 md:py-4 md:text-lg md:px-10">
+            <div class="grid md:grid-cols-2 items-center gap-12">
+                <div class="text-left">
+                    <h1 class="text-4xl font-extrabold text-white sm:text-5xl md:text-6xl mb-6">
+                        Secure Cloud Storage Solutions
+                    </h1>
+                    <p class="text-base text-white sm:text-lg md:text-xl mb-8">
+                        Store, sync, and share your data securely across all major cloud platforms with Golzad.
+                    </p>
+                    <div>
+                        <a 
+                            href="#" 
+                            id="get-started-btn" 
+                            class="inline-block px-10 py-4 text-lg font-bold text-white rounded-xl transition-all duration-300 hover:scale-105"
+                            style="background: linear-gradient(45deg, var(--primary-color), #FE965Cff); box-shadow: 0 10px 25px hsla(21, 89%, 26%, 0.478);"
+                        >
                             Get Started
                         </a>
                     </div>
+                </div>
+                <div>
+                    <img 
+                        src="http://127.0.0.1:8000/hero-image" 
+                        alt="Cloud storage illustration" 
+                        class="rounded-2xl shadow-2xl transform transition-transform hover:scale-105"
+                    />
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Features Page -->
-    <section id="features" class="py-20 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 class="text-3xl font-extrabold text-gray-900 text-center mb-12">
+    <section id="features" class="min-h-screen flex items-center justify-center py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <h2 class="text-4xl font-extrabold text-gray-900 text-center mb-16">
                 Why Choose Golzad?
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="p-6 bg-gray-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Multi-Cloud Support</h3>
-                    <p class="text-gray-600">Seamlessly integrate with AWS, Google Cloud, Azure, and more. Manage all your cloud storage from one platform.</p>
+            <div class="flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
+                <!-- Multi-Cloud Feature -->
+                <div class="lg:w-1/3 relative group">
+                    <div class="absolute -inset-0.5 bg-blue-400 rounded-2xl opacity-50 group-hover:opacity-100 transition duration-300 blur"></div>
+                    <div class="relative p-10 bg-white rounded-2xl shadow-2xl overflow-hidden h-full">
+                        <svg class="absolute top-0 right-0 w-48 h-48 text-blue-100 transform translate-x-1/4 -translate-y-1/4" fill="currentColor" viewBox="0 0 100 100">
+                            <path d="M50 10 L80 50 L50 90 L20 50 Z" />
+                        </svg>
+                        <div class="relative z-10">
+                            <div class="flex items-center mb-6">
+                                <svg class="w-12 h-12 mr-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                                </svg>
+                                <h3 class="text-2xl font-bold text-gray-900">Multi-Cloud Support</h3>
+                            </div>
+                            <p class="text-gray-600 text-lg leading-relaxed">
+                                Seamlessly integrate with AWS, Google Cloud, Azure, and more. Our platform provides comprehensive management across multiple cloud providers, ensuring flexibility, scalability, and optimal resource allocation.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-6 bg-gray-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Enterprise Security</h3>
-                    <p class="text-gray-600">Advanced encryption, access controls, and compliance features to keep your data secure and compliant.</p>
+
+                <!-- Enterprise Security Feature -->
+                <div class="lg:w-1/3 relative group">
+                    <div class="absolute -inset-0.5 bg-green-400 rounded-2xl opacity-50 group-hover:opacity-100 transition duration-300 blur"></div>
+                    <div class="relative p-10 bg-white rounded-2xl shadow-2xl overflow-hidden h-full">
+                        <svg class="absolute top-0 right-0 w-48 h-48 text-green-100 transform translate-x-1/4 -translate-y-1/4" fill="currentColor" viewBox="0 0 100 100">
+                            <path d="M50 10 L90 50 L50 90 L10 50 Z" />
+                        </svg>
+                        <div class="relative z-10">
+                            <div class="flex items-center mb-6">
+                                <svg class="w-12 h-12 mr-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                </svg>
+                                <h3 class="text-2xl font-bold text-gray-900">Enterprise Security</h3>
+                            </div>
+                            <p class="text-gray-600 text-lg leading-relaxed">
+                                Advanced encryption protocols, granular access controls, and comprehensive compliance features designed to protect your most sensitive data and meet stringent industry security standards.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-6 bg-gray-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Easy Integration</h3>
-                    <p class="text-gray-600">Robust APIs and SDKs for seamless integration with your existing applications and workflows.</p>
+
+                <!-- Easy Integration Feature -->
+                <div class="lg:w-1/3 relative group">
+                    <div class="absolute -inset-0.5 bg-purple-400 rounded-2xl opacity-50 group-hover:opacity-100 transition duration-300 blur"></div>
+                    <div class="relative p-10 bg-white rounded-2xl shadow-2xl overflow-hidden h-full">
+                        <svg class="absolute top-0 right-0 w-48 h-48 text-purple-100 transform translate-x-1/4 -translate-y-1/4" fill="currentColor" viewBox="0 0 100 100">
+                            <path d="M50 10 L90 50 L50 90 L10 50 Z" />
+                        </svg>
+                        <div class="relative z-10">
+                            <div class="flex items-center mb-6">
+                                <svg class="w-12 h-12 mr-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 01-4.144-3.73l-.2-.6a2 2 0 00-1.929-1.379H5.228M14 15.274l2.647 1.034c.981.402 1.619 1.359 1.619 2.42V19a3 3 0 01-3 3h-3.19a3 3 0 01-2.663-1.824l-1.256-2.67a2 2 0 012.663-2.727h1.038c.473 0 .81-.42.699-.863a2 2 0 00-1.378-1.474l-2.8-.7A2 2 0 017.25 7.342l3.527-1.046a4 4 0 012.823.192l1.228.613a4 4 0 002.234.4l3.851-.638a2 2 0 012.353 1.976v3.214a2 2 0 01-1.189 1.838l-2.638 1.194a2 2 0 00-1.173 1.76v1.038c0 .999-.793 1.824-1.79 1.866z"></path>
+                                </svg>
+                                <h3 class="text-2xl font-bold text-gray-900">Easy Integration</h3>
+                            </div>
+                            <p class="text-gray-600 text-lg leading-relaxed">
+                                Comprehensive APIs and SDKs that enable seamless integration with your existing applications, workflows, and development ecosystems with minimal configuration.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
-
     <!-- Pricing Page -->
-    <section id="pricing" class="py-20 bg-gray-50">
+    <section id="pricing" class="w-full py-20" style="background-color: #ff3359b7;" >
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 class="text-3xl font-extrabold text-gray-900 text-center mb-12">
+            <h2 class="text-4xl font-extrabold text-white text-center mb-16">
                 Flexible Pricing Plans
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="bg-white p-8 rounded-lg shadow-lg">
-                    <h3 class="text-2xl font-bold text-gray-900 mb-4">Starter</h3>
-                    <p class="text-4xl font-bold text-blue-600">$29<span class="text-lg text-gray-500">/mo</span></p>
-                    <ul class="mt-6 space-y-4">
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">500GB Storage</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">Basic Support</span>
-                        </li>
-                    </ul>
+            <div class="flex flex-col lg:flex-row space-y-8 lg:space-y-0 lg:space-x-8">
+                <div class="lg:w-1/3 bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+                    <div class="p-10">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Starter</h3>
+                        <div class="flex justify-center mb-8">
+                            <svg class="w-48 h-48 text-orange-100" fill="currentColor" viewBox="0 0 100 100">
+                                <path d="M50 10 L90 50 L50 90 L10 50 Z" />
+                            </svg>
+                        </div>
+                        <p class="text-4xl font-bold text-center text-orange-500 mb-8">$29<span class="text-lg text-gray-500">/mo</span></p>
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>500GB Storage</span>
+                            </li>
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>Basic Support</span>
+                            </li>
+                        </ul>
+                        <div class="text-center">
+                            <button class="bg-orange-500 text-white px-8 py-3 rounded-full hover:bg-orange-600 transition duration-300">
+                                Choose Plan
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="bg-white p-8 rounded-lg shadow-lg border-2 border-blue-600">
-                    <h3 class="text-2xl font-bold text-gray-900 mb-4">Professional</h3>
-                    <p class="text-4xl font-bold text-blue-600">$99<span class="text-lg text-gray-500">/mo</span></p>
-                    <ul class="mt-6 space-y-4">
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">2TB Storage</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">24/7 Support</span>
-                        </li>
-                    </ul>
-                </div>
-                <div class="bg-white p-8 rounded-lg shadow-lg">
-                    <h3 class="text-2xl font-bold text-gray-900 mb-4">Enterprise</h3>
-                    <p class="text-4xl font-bold text-blue-600">Custom</p>
-                    <ul class="mt-6 space-y-4">
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">Unlimited Storage</span>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="text-green-500">✓</span>
-                            <span class="ml-3">Premium Support</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Documentation Page -->
-    <section id="documentation" class="py-20 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 class="text-3xl font-extrabold text-gray-900 text-center mb-12">
-                Comprehensive Documentation
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="p-6 bg-gray-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">API Reference</h3>
-                    <p class="text-gray-600 mb-4">Detailed API documentation with examples in multiple programming languages.</p>
-                    <a href="#" class="text-blue-600 hover:text-blue-700">View API Docs →</a>
+                <div class="lg:w-1/3 bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+                    <div class="p-10">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Professional</h3>
+                        <div class="flex justify-center mb-8">
+                            <svg class="w-48 h-48 text-green-100" fill="currentColor" viewBox="0 0 100 100">
+                                <path d="M50 10 L90 50 L50 90 L10 50 Z" />
+                            </svg>
+                        </div>
+                        <p class="text-4xl font-bold text-center text-green-500 mb-8">$99<span class="text-lg text-gray-500">/mo</span></p>
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>2TB Storage</span>
+                            </li>
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>24/7 Support</span>
+                            </li>
+                        </ul>
+                        <div class="text-center">
+                            <button class="bg-green-500 text-white px-8 py-3 rounded-full hover:bg-green-600 transition duration-300">
+                                Choose Plan
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="p-6 bg-gray-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">Integration Guides</h3>
-                    <p class="text-gray-600 mb-4">Step-by-step guides for integrating Golzad with popular cloud platforms.</p>
-                    <a href="#" class="text-blue-600 hover:text-blue-700">View Guides →</a>
+
+                <div class="lg:w-1/3 bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-3xl">
+                    <div class="p-10">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Enterprise</h3>
+                        <div class="flex justify-center mb-8">
+                            <svg class="w-48 h-48 text-purple-100" fill="currentColor" viewBox="0 0 100 100">
+                                <path d="M50 10 L90 50 L50 90 L10 50 Z" />
+                            </svg>
+                        </div>
+                        <p class="text-4xl font-bold text-center text-purple-500 mb-8">Custom</p>
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>Unlimited Storage</span>
+                            </li>
+                            <li class="flex items-center justify-center">
+                                <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>Premium Support</span>
+                            </li>
+                        </ul>
+                        <div class="text-center">
+                            <button class="bg-purple-500 text-white px-8 py-3 rounded-full hover:bg-purple-600 transition duration-300">
+                                Contact Sales
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -162,7 +271,6 @@
                     <h3 class="text-lg font-bold mb-4">Resources</h3>
                     <ul class="space-y-2">
                         <li><a href="#" class="text-gray-400 hover:text-white">Blog</a></li>
-                        <li><a href="#" class="text-gray-400 hover:text-white">Documentation</a></li>
                         <li><a href="#" class="text-gray-400 hover:text-white">Support</a></li>
                     </ul>
                 </div>
@@ -176,5 +284,81 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        // Mobile Menu Toggle
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileMenuToggle.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Smooth Scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Get Started Button Interaction
+        const getStartedBtn = document.getElementById('get-started-btn');
+        getStartedBtn.addEventListener('click', () => {
+            // alert('Coming soon! Sign up for early access.');
+            window.location.href = '/register';
+        });
+
+        // Navbar Scroll Effect
+        window.addEventListener('scroll', () => {
+        const navbar = document.getElementById('navbar');
+        const scrollThreshold = window.innerHeight * 0.2; // 20% of viewport height
+
+        if (window.scrollY > scrollThreshold) {
+            // Slide up and fade out
+            navbar.style.transform = 'translateY(-100%)';
+            navbar.style.opacity = '0';
+        } else {
+            // Slide down and fade in
+            navbar.style.transform = 'translateY(0)';
+            navbar.style.opacity = '1';
+        }
+    });
+
+    // Optional: Add interactive animations
+    document.querySelectorAll('.group').forEach(feature => {
+            feature.addEventListener('mouseenter', () => {
+                const svg = feature.querySelector('svg:first-child');
+                svg.style.transform = 'translate(25%, -25%) rotate(360deg)';
+                svg.style.transition = 'transform 0.5s ease-in-out';
+            });
+
+            feature.addEventListener('mouseleave', () => {
+                const svg = feature.querySelector('svg:first-child');
+                svg.style.transform = 'translate(25%, -25%) rotate(0deg)';
+            });
+        });
+
+
+        // Feature and Pricing Card Interactions
+        const featureCards = document.querySelectorAll('.feature-card');
+        const planCards = document.querySelectorAll('.plan-card');
+
+        function addCardHoverEffect(cards) {
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', () => {
+                    card.style.boxShadow = '0 25px 50px -12px rgba(253, 42, 81, 0.25)';
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.boxShadow = '';
+                });
+            });
+        }
+
+        addCardHoverEffect(featureCards);
+        addCardHoverEffect(planCards);
+    </script>
 </body>
 </html>
