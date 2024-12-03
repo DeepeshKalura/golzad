@@ -14,7 +14,7 @@
             <p class="text-gray-600">Login to your account</p>
         </div>
 
-        <form id="loginForm" class="space-y-4">
+        <div class="space-y-4">
             <div>
                 <label class="block text-gray-700">Email</label>
                 <input type="email" id="email" name="email" required
@@ -25,37 +25,40 @@
                 <input type="password" id="password" name="password" required
                     class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
             </div>
-            <button type="submit" 
+            <button id="teramera"
                 class="w-full bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition duration-300">
                 Login
             </button>
-        </form>
+        </div>
 
         <div class="text-center mt-4">
             <p class="text-gray-600">Don't have an account? 
-                <a href="#" class="text-orange-500 hover:underline">Register</a>
+                <a href="http://127.0.0.1:8000/register" class="text-orange-500 hover:underline">Register</a>
             </p>
         </div>
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
+        document.getElementById('teramera').addEventListener('click', async (_) => {
 
+            email = document.getElementById('email').value;
+            password = document.getElementById('password').value;
+
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
             try {
-                const response = await fetch('/authenticate', {
+                const response = await fetch('http://127.0.0.1:8000/authenticate', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
-                if (result.access_token) {
-                    // Store token in localStorage or httpOnly cookie
-                    localStorage.setItem('access_token', result.access_token);
-                    alert('Login Successful!');
+                console.log(result);
+                if (response.status == 200) {
+                    
                     // Redirect to dashboard or home page
-                    window.location.href = '/dashboard';
+                    window.location.href = '/home';
                 } else {
                     alert('Login Failed');
                 }

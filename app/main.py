@@ -1,13 +1,12 @@
 
 from functools import lru_cache
 import os
-from typing import Any, Generator, Optional 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query, Depends, status, Header
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile, HTTPException, Query, Depends, status, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel 
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 import uuid
 from passlib.context import CryptContext
@@ -68,7 +67,7 @@ def get_settings():
 app = FastAPI(title="Golzad")
 
 
-origins = ["http://127.0.0.0"]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,11 +127,14 @@ async def get_register():
     return FileResponse(path="template/register.html")
 
 @app.post(path="/register")
-async def create_user(user_request: UsersRequest, session: SessionDep):
+async def create_user(user_request: UsersRequest, response: Response, session: SessionDep):
     user = User( email=user_request.email, name=user_request.name,  hash_password=hash_password(user_request.password))
     session.add(user)
     session.commit()
     session.refresh(user)
+
+
+    
     return  {
         "id": user.id,
         "name": user.name, 
@@ -186,7 +188,7 @@ def get_auth_user():
 
 
 @app.post(path="/authenticate")
-async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestForm, Depends()], settings:Settings = Depends(get_settings)):
+async def auth_user(session: SessionDep, response: Response, user: Annotated[ OAuth2PasswordRequestForm, Depends()], settings:Settings = Depends(get_settings)):
     
 
     statement = select(User).where(User.email == user.username)
@@ -215,6 +217,7 @@ async def auth_user(session: SessionDep, user: Annotated[ OAuth2PasswordRequestF
             )
 
             # cookies mey dalte 
+            response.set_cookie(key="access_token", value=token)
             return {
                 "access_token": token
             }
@@ -231,22 +234,19 @@ class Bucket(SQLModel, table=True):
     user_id:int  = Field(foreign_key="user.id")
 
 
-class AuthHeaders(BaseModel):
-    Authorization: str
+
 
 @app.post(path="/bucket")
-async def create_buget(bucket_request: BucketRequest,  session: SessionDep, header: Annotated[AuthHeaders, Header()] ):
+async def create_buget(bucket_request: BucketRequest,  session: SessionDep, request: Request ):
     
+    token = request.cookies.get("access_token")
+
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+
 
     try: 
         
-        # check the token 
-
-        print(header.Authorization)
-
-        # Bearer ""
-
-        token = header.Authorization[7:]
 
         user: User = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
 
@@ -299,85 +299,309 @@ async def store_files():
 # TODO: get the file
 
 
+class BucketObjectCreate(BaseModel):
+    name: str
+    is_folder: bool = False
+    is_private: bool = False
+    bucket_id: int
+
 @app.post("/store")
-async def store_file(
-    file: UploadFile, bucket_name: Annotated[str, Form()],  header: Annotated[AuthHeaders, Header()], session: SessionDep, isPrivate :Annotated[str, Form()]  ):
+async def store_file_or_create_folder(
+    request: Request, 
+    body: BucketObjectCreate, 
+    session: SessionDep,
+    file: Optional[UploadFile] = None,
+):
+    # Validate access token
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Token not found in cookies"
+        )
 
+    # Get current user
+    user: User = await get_current_user(
+        session=get_normal_instance_session(), 
+        token=token, 
+        settings=Settings()
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Please provide valid token"
+        )
+
+    # Validate bucket
+    bucket = session.get(Bucket, body.bucket_id)
+    if not bucket or bucket.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Bucket not found"
+        )
+
+    # Create folder scenario
+    if body.is_folder:
+        folder_object = BucketObject(
+            name=body.name,
+            size=0,
+            is_folder=True,
+            is_private=body.is_private,
+            user_id=user.id,
+            bucket_id=bucket.id,
+            path=f"{UPLOAD_DIRECTORY}/{bucket.name}/{'private/' if body.is_private else ''}{body.name}"
+        )
         
-        is_private_folder = isPrivate.lower() == 'true'
+        # Create physical directory
+        os.makedirs(folder_object.path, exist_ok=True)
         
-        print(header.Authorization)
-
-        # Bearer ""
-
-        token = header.Authorization[7:]
-
-        user: User = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
-
-
-        if not user: 
-             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="please provide valid token")
+        session.add(folder_object)
+        session.commit()
+        session.refresh(folder_object)
         
+        return {
+            "message": f"Folder {body.name} created successfully",
+            "folder_id": folder_object.id
+        }
 
-        statement = select(Bucket).where(Bucket.user_id == user.id, Bucket.name == bucket_name)
-        bucket = session.exec(statement).one_or_none()
+    # File upload scenario
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="No file provided"
+        )
 
-        if not bucket:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bucket not found")
+    # Determine storage path
+    base_directory = f"{UPLOAD_DIRECTORY}/{bucket.name}"
+    directory = f"{base_directory}/{'private' if body.is_private else ''}"
+    os.makedirs(directory, exist_ok=True)
 
+    # Save file
+    full_path = os.path.join(directory, file.filename)
+    with open(full_path, "wb") as f:
+        f.write(await file.read())
 
+    # Create BucketObject for file
+    file_object = BucketObject(
+        name=file.filename,
+        size=os.path.getsize(full_path),
+        is_folder=False,
+        is_private=body.is_private,
+        path=full_path,
+        user_id=user.id,
+        bucket_id=bucket.id,
+    )
 
-        if (not is_private_folder):
+    session.add(file_object)
+    session.commit()
+    session.refresh(file_object)
 
-            directory = f"{UPLOAD_DIRECTORY}/{bucket.name}"
-
-            with open(f"{directory}/{file.filename}", "wb") as f:
-                f.write(await file.read())
-
-
-            return {
-                "message": "your {file.filename} has been uploaded to the {bucket_name}",
-                "url": f"http://127.0.0.1:8000/store/{bucket_name}/{file.filename}"
-            }
-        else: 
-            directory = f"{UPLOAD_DIRECTORY}/{bucket.name}/private"
-
-            with open(f"{directory}/{file.filename}", "wb") as f:
-                f.write(await file.read())
-
-            return {
-                "message": f"your {file.filename} has been uploaded to the {bucket_name}",
-                "url": f"http://127.0.0.1:8000/store/{bucket_name}/private/{file.filename}"
-            }
-
-
- 
-
-
-@app.get("/store/{bucket_name}/{filename}")
-async def get_store(bucket_name: str, filename: str, q:  Annotated[str | None, Query(max_length=50)] = None):
-
-    file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/{filename}"
-    if(q == None):
-
-
-        file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/{filename}"
-        
-        if not os.path.exists(file_location):
-            return {"message": "File not found"}
-    else: 
-
-        file_location = UPLOAD_DIRECTORY + f"/{bucket_name}/private/{filename}"
-
-        if not os.path.exists(file_location):
-            return {"message": "File not found"}
-
-    return FileResponse(path=file_location)
-     
-
+    return {
+        "message": f"File {file.filename} uploaded successfully",
+        "file_id": file_object.id,
+    }
 
 
 
 @app.get("/home")
 def get_home():
     return FileResponse(path="template/home.html")
+
+@app.get("/user")
+async def get_profile(request: Request):
+
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email
+    }
+
+@app.get("/bucket")
+async def get_bucket(request: Request, session: SessionDep):
+    token = request.cookies.get("access_token")
+
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+    
+
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+
+    if not user: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+
+    statement = select(Bucket).where(Bucket.user_id == user.id)
+    bucket = session.exec(statement).all()
+    
+    
+    return {
+       "buckets":  [{"id": b.id, "name": b.name} for b in bucket]
+    }
+
+@app.get("/profileImage")
+async def get_profile_image():
+    return FileResponse("upload/himmeltheHero.png")
+
+
+class FileInfo(BaseModel):
+    name: str
+    size: int
+    type: str
+    is_directory: bool
+
+   
+
+
+@app.get(path="/files/{bucket_id}")
+async def get_files(request: Request, session: SessionDep, bucket_id:int  ):
+    token = request.cookies.get("access_token")
+
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+    
+
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+
+    if not user: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+
+    statement = select(Bucket).where(Bucket.id == bucket_id)
+    bucket = session.exec(statement).one()
+
+
+    # calling the files from the bucket
+
+    files = f"{UPLOAD_DIRECTORY}/{bucket.name}"
+
+
+    file_list: list[FileInfo] = []
+    
+    for file_name in os.listdir(files):
+        file_path = os.path.join(files, file_name)
+        file_info = FileInfo(
+            name=file_name,
+            size=os.path.getsize(file_path),
+            type="directory" if os.path.isdir(file_path) else "file",
+            is_directory=os.path.isdir(file_path)
+        )
+        file_list.append(file_info)
+    
+    return {
+    
+        "files": file_list
+    }
+
+
+
+class RenameBucketRequestModel(BaseModel):
+    new_name: str
+    old_name: str
+
+
+@app.put("/bucket/rename/{bucket_id}")
+async def rename_bucket(
+    request: Request, 
+    session: SessionDep, 
+    bucket_id: str, 
+    bucket_rename: RenameBucketRequestModel
+):
+    token = request.cookies.get("access_token")
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+    
+    statement = select(Bucket).where(Bucket.name == bucket_rename.old_name, Bucket.user_id == user.id)
+    existing_bucket = session.exec(statement).first()
+    
+    if not existing_bucket:
+        raise HTTPException(status_code=404, detail="Bucket not found")
+    
+    existing_bucket.name = bucket_rename.new_name
+    session.add(existing_bucket)
+    session.commit()
+    
+    return {"message": "Bucket renamed successfully"}
+
+@app.delete("/bucket/{bucket_id}")
+async def delete_bucket(
+    request: Request, 
+    bucket_id: str, 
+    session: SessionDep
+):
+    token = request.cookies.get("access_token")
+
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+
+        
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+    
+    statement = select(Bucket).where(Bucket.id == bucket_id, Bucket.user_id == user.id)
+    bucket = session.exec(statement).first()
+    
+    if not bucket:
+        raise HTTPException(status_code=404, detail="Bucket not found")
+    
+    # Delete associated files first
+    file_statement = select(BucketObject).where(BucketObject.bucket_id == bucket.id)
+    files = session.exec(file_statement).all()
+    
+    for file in files:
+        # Optional: Delete physical file from storage
+        os.remove(file.path)
+        session.delete(file)
+    
+    session.delete(bucket)
+    session.commit()
+    
+    return {"message": "Bucket and its files deleted successfully"}
+
+
+
+class BucketObject(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    size: int 
+    is_folder: bool 
+    is_private: bool
+    path: str
+    user_id:int  = Field(foreign_key="user.id")
+    bucket_id:int = Field(foreign_key="bucket.id")
+
+
+
+
+
+@app.get("/file/{file_id}")
+async def get_file(
+    request: Request, 
+    file_id: int, 
+    session: SessionDep
+):
+    token = request.cookies.get("access_token")
+    if not token: 
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token not found in cookies")
+
+    user = await get_current_user(session=get_normal_instance_session(), token=token, settings=Settings())
+    
+    file_statement = select(BucketObject).where(BucketObject.id == file_id)
+    file = session.exec(file_statement).first()
+    
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Check file permissions
+    if file.is_private and file.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return FileResponse(path=file.path)
