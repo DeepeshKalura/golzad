@@ -605,3 +605,8 @@ async def get_file(
         raise HTTPException(status_code=403, detail="Access denied")
     
     return FileResponse(path=file.path)
+
+
+@app.get("/sharing-illustration")
+def sharing_illustration():
+    return FileResponse("template/images/share.svg")    
