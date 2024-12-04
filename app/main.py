@@ -1,4 +1,3 @@
-
 from functools import lru_cache
 import os
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile, HTTPException, Query, Depends, status, Header
@@ -16,6 +15,7 @@ from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv, find_dotenv
+import shutil
 
 load_dotenv(find_dotenv())
 
@@ -290,26 +290,15 @@ async def create_buget(bucket_request: BucketRequest,  session: SessionDep, requ
 
     
 
-# TODO: store the file
-@app.post(path="/store/{bucket_name}")
-async def store_files():
-    pass
 
-
-# TODO: get the file
-
-
-class BucketObjectCreate(BaseModel):
-    name: str
-    is_folder: bool = False
-    is_private: bool = False
-    bucket_id: int
-
-@app.post("/store")
+@app.post("/store/{bucket_id}")
 async def store_file_or_create_folder(
     request: Request, 
-    body: BucketObjectCreate, 
     session: SessionDep,
+    bucket_id: int,
+    name: str = Form(...),
+    is_folder: bool = Form(False),
+    is_private: bool = Form(False),
     file: Optional[UploadFile] = None,
 ):
     # Validate access token
@@ -333,7 +322,7 @@ async def store_file_or_create_folder(
         )
 
     # Validate bucket
-    bucket = session.get(Bucket, body.bucket_id)
+    bucket = session.get(Bucket, bucket_id)
     if not bucket or bucket.user_id != user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -341,15 +330,15 @@ async def store_file_or_create_folder(
         )
 
     # Create folder scenario
-    if body.is_folder:
+    if is_folder:
         folder_object = BucketObject(
-            name=body.name,
+            name=name,
             size=0,
             is_folder=True,
-            is_private=body.is_private,
+            is_private=is_private,
             user_id=user.id,
             bucket_id=bucket.id,
-            path=f"{UPLOAD_DIRECTORY}/{bucket.name}/{'private/' if body.is_private else ''}{body.name}"
+            path=f"{UPLOAD_DIRECTORY}/{bucket.name}/{'private/' if is_private else ''}{name}"
         )
         
         # Create physical directory
@@ -360,7 +349,7 @@ async def store_file_or_create_folder(
         session.refresh(folder_object)
         
         return {
-            "message": f"Folder {body.name} created successfully",
+            "message": f"Folder {name} created successfully",
             "folder_id": folder_object.id
         }
 
@@ -373,7 +362,7 @@ async def store_file_or_create_folder(
 
     # Determine storage path
     base_directory = f"{UPLOAD_DIRECTORY}/{bucket.name}"
-    directory = f"{base_directory}/{'private' if body.is_private else ''}"
+    directory = f"{base_directory}/{'private' if is_private else ''}"
     os.makedirs(directory, exist_ok=True)
 
     # Save file
@@ -386,7 +375,7 @@ async def store_file_or_create_folder(
         name=file.filename,
         size=os.path.getsize(full_path),
         is_folder=False,
-        is_private=body.is_private,
+        is_private=is_private,
         path=full_path,
         user_id=user.id,
         bucket_id=bucket.id,
@@ -456,6 +445,7 @@ class FileInfo(BaseModel):
     size: int
     type: str
     is_directory: bool
+    id: int
 
    
 
@@ -474,25 +464,27 @@ async def get_files(request: Request, session: SessionDep, bucket_id:int  ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     
 
-    statement = select(Bucket).where(Bucket.id == bucket_id)
-    bucket = session.exec(statement).one()
-
 
     # calling the files from the bucket
 
-    files = f"{UPLOAD_DIRECTORY}/{bucket.name}"
 
 
     file_list: list[FileInfo] = []
+
+
+    statement = select(BucketObject).where(BucketObject.bucket_id == bucket_id)
+    files = session.exec(statement).all()
+
     
-    for file_name in os.listdir(files):
-        file_path = os.path.join(files, file_name)
+    for file in files: 
         file_info = FileInfo(
-            name=file_name,
-            size=os.path.getsize(file_path),
-            type="directory" if os.path.isdir(file_path) else "file",
-            is_directory=os.path.isdir(file_path)
+            id=file.id,
+            name=file.name,
+            size=file.size,
+            type="directory" if os.path.isdir(file.path) else "file",
+            is_directory=os.path.isdir(file.path)
         )
+    
         file_list.append(file_info)
     
     return {
@@ -527,6 +519,9 @@ async def rename_bucket(
         raise HTTPException(status_code=404, detail="Bucket not found")
     
     existing_bucket.name = bucket_rename.new_name
+    old_folder = f"{UPLOAD_DIRECTORY}/{bucket_rename.old_name}"
+    new_folder = f"{UPLOAD_DIRECTORY}/{bucket_rename.new_name}"
+    os.rename(old_folder, new_folder)
     session.add(existing_bucket)
     session.commit()
     
@@ -561,6 +556,10 @@ async def delete_bucket(
         os.remove(file.path)
         session.delete(file)
     
+    # Delete the physical folder from storage
+    folder_path = f"{UPLOAD_DIRECTORY}/{bucket.name}"
+    shutil.rmtree(folder_path)
+
     session.delete(bucket)
     session.commit()
     
@@ -582,7 +581,7 @@ class BucketObject(SQLModel, table=True):
 
 
 
-@app.get("/file/{file_id}")
+@app.get("/download/{file_id}")
 async def get_file(
     request: Request, 
     file_id: int, 
@@ -610,3 +609,4 @@ async def get_file(
 @app.get("/sharing-illustration")
 def sharing_illustration():
     return FileResponse("template/images/share.svg")    
+
